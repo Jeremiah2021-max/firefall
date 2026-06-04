@@ -110,6 +110,7 @@ export class Weapon {
     if (this.reloading || this.reserveAmmo <= 0) return;
 
     this.reloading = true;
+    AudioManager.playReload();
 
     setTimeout(() => {
       const needed = this.magazine - this.ammo;
