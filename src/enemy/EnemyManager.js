@@ -3,9 +3,10 @@ import { Enemy } from "./Enemy.js";
 import { ParticleSystem } from "../effects/ParticleSystem.js";
 
 export class EnemyManager {
-  constructor(scene, camera) {
+  constructor(scene, camera, world) {
     this.scene = scene;
     this.camera = camera;
+    this.world = world;
     this.enemies = [];
     this.bloodPools = [];
     this.enemyBullets = [];
@@ -28,7 +29,7 @@ export class EnemyManager {
       1,
       (Math.random() - 0.5) * 50
     );
-    const enemy = new Enemy(this.scene, position);
+    const enemy = new Enemy(this.scene, position, this.world);
     this.enemies.push(enemy);
   }
 

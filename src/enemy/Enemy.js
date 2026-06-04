@@ -1,8 +1,9 @@
 import * as THREE from "three";
 
 export class Enemy {
-  constructor(scene, position) {
+  constructor(scene, position, world) {
     this.scene = scene;
+    this.world = world;
     this.mesh = this.createMesh();
     this.mesh.position.copy(position);
     scene.add(this.mesh);
@@ -213,7 +214,16 @@ export class Enemy {
       this.currentWaypointIndex = (this.currentWaypointIndex + 1) % this.patrolWaypoints.length;
     } else {
       direction.normalize();
+      const oldPosition = this.mesh.position.clone();
       this.mesh.position.add(direction.multiplyScalar(this.patrolSpeed));
+      
+      // Check collision with world objects
+      if (this.world.checkCollision(this.mesh.position)) {
+        this.mesh.position.copy(oldPosition);
+        // Try to find a new direction
+        this.currentWaypointIndex = (this.currentWaypointIndex + 1) % this.patrolWaypoints.length;
+      }
+      
       this.mesh.lookAt(targetWaypoint);
     }
   }
@@ -222,7 +232,22 @@ export class Enemy {
     const direction = new THREE.Vector3().subVectors(playerPosition, this.mesh.position);
     direction.y = 0;
     direction.normalize();
+    const oldPosition = this.mesh.position.clone();
     this.mesh.position.add(direction.multiplyScalar(this.chaseSpeed));
+    
+    // Check collision with world objects
+    if (this.world.checkCollision(this.mesh.position)) {
+      this.mesh.position.copy(oldPosition);
+      // Try to slide along the collision
+      const slideDirection = new THREE.Vector3(direction.z, 0, -direction.x);
+      this.mesh.position.add(slideDirection.multiplyScalar(this.chaseSpeed * 0.5));
+      
+      // If still colliding, revert completely
+      if (this.world.checkCollision(this.mesh.position)) {
+        this.mesh.position.copy(oldPosition);
+      }
+    }
+    
     this.mesh.lookAt(playerPosition.x, this.mesh.position.y, playerPosition.z);
   }
 
