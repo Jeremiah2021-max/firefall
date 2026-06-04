@@ -1,14 +1,16 @@
 import * as THREE from "three";
 import { Enemy } from "./Enemy.js";
+import { ParticleSystem } from "../effects/ParticleSystem.js";
 
 export class EnemyManager {
   constructor(scene, camera) {
     this.scene = scene;
     this.camera = camera;
     this.enemies = [];
-    this.bloodParticles = [];
+    this.bloodPools = [];
     this.enemyBullets = [];
     this.kills = 0;
+    this.particleSystem = new ParticleSystem(scene);
 
     this.spawnInitialEnemies();
     this.setupSpawning();
@@ -37,30 +39,30 @@ export class EnemyManager {
   }
 
   createBloodSplash(position) {
-    for (let i = 0; i < 15; i++) {
-      const blood = new THREE.Mesh(
-        new THREE.SphereGeometry(0.05, 4, 4),
-        new THREE.MeshBasicMaterial({
-          color: 0xff0000
-        })
-      );
+    this.particleSystem.spawnBloodParticles(position, 20);
+  }
 
-      blood.position.copy(position);
+  createBloodPool(position) {
+    const bloodPool = new THREE.Mesh(
+      new THREE.CircleGeometry(1.5, 32),
+      new THREE.MeshBasicMaterial({
+        color: 0x8b0000,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.8
+      })
+    );
 
-      const velocity = new THREE.Vector3(
-        (Math.random() - 0.5) * 0.1,
-        Math.random() * 0.15,
-        (Math.random() - 0.5) * 0.1
-      );
+    bloodPool.position.copy(position);
+    bloodPool.position.y = 0.01;
+    bloodPool.rotation.x = -Math.PI / 2;
 
-      this.bloodParticles.push({
-        mesh: blood,
-        velocity: velocity,
-        life: 1.0
-      });
+    this.bloodPools.push({
+      mesh: bloodPool,
+      deathTime: Date.now()
+    });
 
-      this.scene.add(blood);
-    }
+    this.scene.add(bloodPool);
   }
 
   createEnemyBullet(position, direction) {
@@ -158,21 +160,24 @@ export class EnemyManager {
     // Update enemy bullets
     this.updateEnemyBullets(playerPosition, player);
 
-    // Update blood particles
-    for (let i = this.bloodParticles.length - 1; i >= 0; i--) {
-      const blood = this.bloodParticles[i];
-      blood.velocity.y -= 0.01;
-      blood.mesh.position.add(blood.velocity);
-      blood.life -= 0.02;
+    // Update particle system
+    this.particleSystem.update();
+    this.particleSystem.render();
 
-      if (blood.mesh.position.y <= 0) {
-        blood.mesh.position.y = 0;
-        blood.velocity.set(0, 0, 0);
+    // Update blood pools
+    for (let i = this.bloodPools.length - 1; i >= 0; i--) {
+      const pool = this.bloodPools[i];
+      const elapsed = Date.now() - pool.deathTime;
+      
+      // Fade out over the last second
+      if (elapsed > 1000) {
+        pool.mesh.material.opacity = Math.max(0, 0.8 - (elapsed - 1000) / 1000 * 0.8);
       }
-
-      if (blood.life <= 0) {
-        this.scene.remove(blood.mesh);
-        this.bloodParticles.splice(i, 1);
+      
+      // Remove after 2 seconds
+      if (elapsed > 2000) {
+        this.scene.remove(pool.mesh);
+        this.bloodPools.splice(i, 1);
       }
     }
   }
@@ -192,17 +197,30 @@ export class EnemyManager {
           marker.style.display = "none";
         }, 100);
 
-        // Headshot detection
+        // Hit zone detection
         const headHeight = enemy.mesh.position.y + 1.1;
-        const isHeadshot = bulletPosition.y > headHeight;
-        const damage = isHeadshot ? 100 : 50;
+        const torsoBottom = enemy.mesh.position.y + 0.4;
+        
+        let damage;
+        if (bulletPosition.y > headHeight) {
+          // Headshot - 1 shot kill
+          damage = 100;
+        } else if (bulletPosition.y > torsoBottom) {
+          // Torso - 2 shots to kill
+          damage = 50;
+        } else {
+          // Limbs - lower damage
+          damage = 25;
+        }
 
         const wasAlive = enemy.health > 0;
         enemy.takeDamage(damage);
         
         // Check if enemy died from this hit
         if (wasAlive && enemy.health <= 0) {
-          this.addKillFeedEntry(isHeadshot);
+          this.addKillFeedEntry(damage === 100);
+          // Create blood pool when enemy dies
+          this.createBloodPool(enemy.mesh.position);
         }
         
         return true;

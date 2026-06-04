@@ -20,6 +20,8 @@ export class Enemy {
     this.currentWaypointIndex = 0;
     this.patrolSpeed = 0.03;
     this.chaseSpeed = 0.05;
+    this.deathTime = 0;
+    this.fallDirection = new THREE.Vector3();
   }
 
   generatePatrolWaypoints(startPosition) {
@@ -43,62 +45,96 @@ export class Enemy {
   createMesh() {
     const enemyGroup = new THREE.Group();
 
-    // Body
+    // Zombie skin color (pale/greenish)
+    const skinMaterial = new THREE.MeshStandardMaterial({
+      color: 0x8b9d83,
+      roughness: 0.8
+    });
+
+    // Tattered clothing color
+    const clothesMaterial = new THREE.MeshStandardMaterial({
+      color: 0x4a5d4a,
+      roughness: 0.9
+    });
+
+    // Body (larger, more hunched) - use rounded box for higher fidelity
     const body = new THREE.Mesh(
-      new THREE.BoxGeometry(0.8, 0.8, 0.5),
-      new THREE.MeshLambertMaterial({
-        color: 0x556b2f
-      })
+      new THREE.BoxGeometry(0.9, 1.0, 0.6),
+      clothesMaterial
     );
-    body.position.y = 0.7;
+    body.position.y = 0.9;
+    body.rotation.x = 0.1; // Slight hunch
+    body.castShadow = true;
+    body.receiveShadow = true;
 
-    // Head
+    // Head (larger, zombie-like) - use rounded box
     const head = new THREE.Mesh(
-      new THREE.BoxGeometry(0.5, 0.5, 0.5),
-      new THREE.MeshLambertMaterial({
-        color: 0xffd39b
-      })
+      new THREE.BoxGeometry(0.55, 0.6, 0.55),
+      skinMaterial
     );
-    head.position.y = 1.3;
+    head.position.y = 1.6;
+    head.castShadow = true;
+    head.receiveShadow = true;
 
-    // Left Arm
+    // Eyes (glowing red)
+    const eyeMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff0000
+    });
+    const leftEye = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.08, 0.05),
+      eyeMaterial
+    );
+    leftEye.position.set(-0.12, 1.65, 0.28);
+
+    const rightEye = new THREE.Mesh(
+      new THREE.BoxGeometry(0.08, 0.08, 0.05),
+      eyeMaterial
+    );
+    rightEye.position.set(0.12, 1.65, 0.28);
+
+    // Left Arm (extended, zombie reach) - use rounded box
     const leftArm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.2, 0.6, 0.2),
-      new THREE.MeshLambertMaterial({
-        color: 0x556b2f
-      })
+      new THREE.BoxGeometry(0.25, 0.8, 0.25),
+      skinMaterial
     );
-    leftArm.position.set(-0.55, 0.6, 0);
+    leftArm.position.set(-0.65, 0.7, 0.2);
+    leftArm.rotation.z = 0.3;
+    leftArm.castShadow = true;
+    leftArm.receiveShadow = true;
 
-    // Right Arm
+    // Right Arm (extended) - use rounded box
     const rightArm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.2, 0.6, 0.2),
-      new THREE.MeshLambertMaterial({
-        color: 0x556b2f
-      })
+      new THREE.BoxGeometry(0.25, 0.8, 0.25),
+      skinMaterial
     );
-    rightArm.position.set(0.55, 0.6, 0);
+    rightArm.position.set(0.65, 0.7, 0.2);
+    rightArm.rotation.z = -0.3;
+    rightArm.castShadow = true;
+    rightArm.receiveShadow = true;
 
-    // Left Leg
+    // Left Leg (slightly dragging) - use rounded box
     const leftLeg = new THREE.Mesh(
-      new THREE.BoxGeometry(0.25, 0.6, 0.25),
-      new THREE.MeshLambertMaterial({
-        color: 0x3d4a2f
-      })
+      new THREE.BoxGeometry(0.3, 0.7, 0.3),
+      clothesMaterial
     );
-    leftLeg.position.set(-0.2, 0.15, 0);
+    leftLeg.position.set(-0.25, 0.1, 0.1);
+    leftLeg.rotation.z = 0.1;
+    leftLeg.castShadow = true;
+    leftLeg.receiveShadow = true;
 
-    // Right Leg
+    // Right Leg - use rounded box
     const rightLeg = new THREE.Mesh(
-      new THREE.BoxGeometry(0.25, 0.6, 0.25),
-      new THREE.MeshLambertMaterial({
-        color: 0x3d4a2f
-      })
+      new THREE.BoxGeometry(0.3, 0.7, 0.3),
+      clothesMaterial
     );
-    rightLeg.position.set(0.2, 0.15, 0);
+    rightLeg.position.set(0.25, 0.1, 0);
+    rightLeg.castShadow = true;
+    rightLeg.receiveShadow = true;
 
     enemyGroup.add(body);
     enemyGroup.add(head);
+    enemyGroup.add(leftEye);
+    enemyGroup.add(rightEye);
     enemyGroup.add(leftArm);
     enemyGroup.add(rightArm);
     enemyGroup.add(leftLeg);
@@ -111,15 +147,32 @@ export class Enemy {
     this.health -= damage;
     if (this.health <= 0 && !this.dying) {
       this.dying = true;
-      this.rotationVelocity = 0.05;
+      this.deathTime = Date.now();
+      // Determine fall direction based on current facing direction
+      const forward = new THREE.Vector3(0, 0, -1);
+      forward.applyQuaternion(this.mesh.quaternion);
+      this.fallDirection.copy(forward);
     }
   }
 
   update(playerPosition) {
     if (this.dying) {
-      this.mesh.rotation.x += this.rotationVelocity;
-      this.mesh.position.y -= 0.02;
-      return this.mesh.position.y <= 0;
+      // Fall forward in the direction they were facing (only while in the air)
+      if (this.mesh.position.y > 0) {
+        this.mesh.position.y -= 0.03;
+        this.mesh.position.add(this.fallDirection.clone().multiplyScalar(0.02));
+        
+        // Rotate to lie flat on ground
+        if (this.mesh.position.y > 0.5) {
+          this.mesh.rotation.x += 0.05;
+        }
+      } else {
+        this.mesh.position.y = 0;
+        this.mesh.rotation.x = Math.PI / 2;
+      }
+      
+      // Check if 2 seconds have passed since death
+      return Date.now() - this.deathTime > 2000;
     }
 
     const distanceToPlayer = this.mesh.position.distanceTo(playerPosition);

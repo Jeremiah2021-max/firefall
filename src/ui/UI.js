@@ -3,6 +3,7 @@ export class UI {
     this.healthElement = document.getElementById("health");
     this.ammoElement = document.getElementById("ammo");
     this.killsElement = document.getElementById("kills");
+    this.crosshairElement = document.getElementById("crosshair");
   }
 
   update(health, ammo, reserveAmmo, kills) {
@@ -14,6 +15,18 @@ export class UI {
     }
     if (this.killsElement) {
       this.killsElement.innerText = `Kills: ${kills}`;
+    }
+  }
+
+  updateCrosshair(zoomLevel) {
+    if (this.crosshairElement) {
+      if (zoomLevel > 1.5) {
+        this.crosshairElement.classList.add("scoped");
+        this.crosshairElement.textContent = "";
+      } else {
+        this.crosshairElement.classList.remove("scoped");
+        this.crosshairElement.textContent = "+";
+      }
     }
   }
 }

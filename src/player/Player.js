@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { PointerLockControls } from "three-stdlib";
+import { AudioManager } from "../audio/AudioManager.js";
 
 export class Player {
   constructor(camera, scene, world) {
@@ -13,6 +14,7 @@ export class Player {
     this.yVelocity = 0;
     this.grounded = true;
     this.lastAttack = 0;
+    this.lastFootstep = 0;
 
     this.keys = {
       w: false,
@@ -55,6 +57,8 @@ export class Player {
 
     const oldPosition = this.camera.position.clone();
 
+    const isMoving = this.keys.w || this.keys.s || this.keys.a || this.keys.d;
+
     if (this.keys.w) {
       this.controls.moveForward(speed);
     }
@@ -85,6 +89,16 @@ export class Player {
     }
 
     this.camera.position.y = this.y;
+
+    // Play footstep sound when moving and grounded
+    if (isMoving && this.grounded) {
+      const now = Date.now();
+      const footstepInterval = this.keys.shift ? 250 : 400;
+      if (now - this.lastFootstep > footstepInterval) {
+        AudioManager.playFootstep();
+        this.lastFootstep = now;
+      }
+    }
   }
 
   takeDamage(amount) {

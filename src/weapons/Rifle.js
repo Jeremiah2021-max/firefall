@@ -9,6 +9,9 @@ export class Rifle extends Weapon {
     this.magazine = 30;
     this.reserveAmmo = 120;
     this.recoilRecovery = 0.92;
+    this.zoomLevel = 1;
+    this.minZoom = 1;
+    this.maxZoom = 4;
   }
 
   createGun() {
@@ -46,24 +49,40 @@ export class Rifle extends Weapon {
   }
 
   createBullet() {
-    const bullet = new THREE.Mesh(
-      new THREE.SphereGeometry(0.12, 8, 8),
+    this.createMuzzleFlash();
+
+    const tracer = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.05, 1),
       new THREE.MeshBasicMaterial({
-        color: 0xff6b35
+        color: 0xffff00
       })
     );
 
-    bullet.position.copy(this.camera.position);
+    tracer.position.copy(this.camera.position);
 
     const direction = new THREE.Vector3();
     this.camera.getWorldDirection(direction);
 
+    // Rotate tracer to align with bullet direction
+    tracer.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction);
+
     this.bullets.push({
-      mesh: bullet,
+      mesh: tracer,
       direction
     });
 
-    this.scene.add(bullet);
+    this.scene.add(tracer);
+  }
+
+  createMuzzleFlash() {
+    if (this.gun) {
+      const flash = new THREE.PointLight(0xffaa33, 10, 5);
+      flash.position.set(0, 0.05, 0.55);
+      this.gun.add(flash);
+      setTimeout(() => {
+        this.gun.remove(flash);
+      }, 50);
+    }
   }
 
   update() {
