@@ -32,7 +32,7 @@ export class World {
     groundGeometry.computeVertexNormals();
     
     const groundMaterial = new THREE.MeshStandardMaterial({
-      color: 0x5d8a4a,
+      color: 0x8b7355,
       roughness: 0.85,
       metalness: 0.05
     });
@@ -149,8 +149,6 @@ export class World {
     const waterGeometry = new THREE.PlaneGeometry(500, 500);
     const waterMaterial = new THREE.MeshStandardMaterial({
       color: 0x4a90a4,
-      transparent: true,
-      opacity: 0.7,
       roughness: 0.1,
       metalness: 0.3
     });

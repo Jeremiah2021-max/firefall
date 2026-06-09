@@ -1,10 +1,5 @@
 import * as THREE from "three";
 import { PointerLockControls } from "three-stdlib";
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { SSAOPass } from "three/examples/jsm/postprocessing/SSAOPass.js";
-import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { Player } from "../player/Player.js";
 import { EnemyManager } from "../enemy/EnemyManager.js";
 import { World } from "../world/World.js";
@@ -47,15 +42,12 @@ export class Game {
     this.renderer.toneMappingExposure = 1.0;
     document.body.appendChild(this.renderer.domElement);
 
-    // Setup post-processing
-    this.setupPostProcessing();
-
     this.camera.position.set(0, 2, 5);
 
     this.setupLights();
     this.world = new World(this.scene);
     this.player = new Player(this.camera, this.scene, this.world);
-    this.enemyManager = new EnemyManager(this.scene, this.camera);
+    this.enemyManager = new EnemyManager(this.scene, this.camera, this.world);
     this.ui = new UI();
     this.audioManager = new AudioManager();
     
@@ -101,34 +93,6 @@ export class Game {
 
     // Add fog for depth
     this.scene.fog = new THREE.Fog(0x87ceeb, 50, 200);
-  }
-
-  setupPostProcessing() {
-    this.composer = new EffectComposer(this.renderer);
-
-    // Render pass
-    const renderPass = new RenderPass(this.scene, this.camera);
-    this.composer.addPass(renderPass);
-
-    // SSAO pass for ambient occlusion
-    const ssaoPass = new SSAOPass(this.scene, this.camera, window.innerWidth, window.innerHeight);
-    ssaoPass.kernelRadius = 16;
-    ssaoPass.minDistance = 0.005;
-    ssaoPass.maxDistance = 0.1;
-    this.composer.addPass(ssaoPass);
-
-    // Bloom pass for glow effects
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.5, // strength
-      0.4, // radius
-      0.85 // threshold
-    );
-    this.composer.addPass(bloomPass);
-
-    // Output pass for color correction
-    const outputPass = new OutputPass();
-    this.composer.addPass(outputPass);
   }
 
   setupEventListeners() {
@@ -206,7 +170,6 @@ export class Game {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
-      this.composer.setSize(window.innerWidth, window.innerHeight);
     });
   }
 
@@ -257,7 +220,7 @@ export class Game {
   }
 
   render() {
-    this.composer.render();
+    this.renderer.render(this.scene, this.camera);
   }
 
   updateDayNightCycle() {
